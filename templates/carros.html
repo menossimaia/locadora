@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Carros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Gerenciamento de Carros</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarCarro">Adicionar Novo Carro</button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs">
+            <li class="nav-item"><a class="nav-link active" href="#" id="filtro-todos">Todos</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" id="filtro-disponiveis">Disponíveis</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" id="filtro-alugados">Alugados</a></li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Ano</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="lista-carros">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAdicionarCarro" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Novo Carro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-veiculo">
+                    <div class="mb-3"><input type="text" id="marca" class="form-control" placeholder="Marca" required></div>
+                    <div class="mb-3"><input type="text" id="modelo" class="form-control" placeholder="Modelo" required></div>
+                    <div class="mb-3"><input type="number" id="ano" class="form-control" placeholder="Ano" required></div>
+                    <button type="submit" class="btn btn-primary w-100">Cadastrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAlugarCarro" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Realizar Aluguel</h5></div>
+            <div class="modal-body">
+                <p><strong>Carro:</strong> <span id="carro-para-alugar-info"></span></p>
+                <form id="form-aluguel">
+                    <input type="hidden" id="carro-id-aluguel">
+                    <div class="mb-3">
+                        <label for="cliente-select" class="form-label">Selecione o Cliente</label>
+                        <select class="form-select" id="cliente-select" required>
+                            </select>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Confirmar Aluguel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const API_URL = 'http://127.0.0.1:5000';
+
+    async function carregarDados() {
+       
+        const responseCarros = await fetch(`${API_URL}/veiculos`);
+        const carros = await responseCarros.json();
+        const listaCarrosTbody = document.getElementById('lista-carros');
+        listaCarrosTbody.innerHTML = ''; 
+        carros.forEach(carro => {
+            const tr = document.createElement('tr');
+            const statusBadge = carro.disponivel 
+                ? `<span class="badge bg-success">Disponível</span>`
+                : `<span class="badge bg-warning">Alugado</span>`;
+            
+            const btnAlugar = carro.disponivel
+                ? `<button class="btn btn-success btn-sm" onclick="abrirModalAluguel(${carro.id}, '${carro.marca} ${carro.modelo}')">Alugar</button>`
+                : '';
+
+            tr.innerHTML = `
+                <td>${carro.marca}</td>
+                <td>${carro.modelo}</td>
+                <td>${carro.ano}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    ${btnAlugar}
+                    <button class="btn btn-danger btn-sm" onclick="excluirVeiculo(${carro.id})">Excluir</button>
+                </td>
+            `;
+            listaCarrosTbody.appendChild(tr);
+        });
+    }
+
+  
+    document.getElementById('form-veiculo').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const marca = document.getElementById('marca').value;
+        const modelo = document.getElementById('modelo').value;
+        const ano = document.getElementById('ano').value;
+        
+        await fetch(`${API_URL}/veiculos`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ marca, modelo, ano: parseInt(ano) })
+        });
+        
+        bootstrap.Modal.getInstance(document.getElementById('modalAdicionarCarro')).hide();
+        document.getElementById('form-veiculo').reset();
+        carregarDados();
+    });
+
+
+    async function excluirVeiculo(id) {
+        if (confirm('Tem certeza que deseja excluir este veículo?')) {
+            await fetch(`${API_URL}/veiculos/${id}`, { method: 'DELETE' });
+            carregarDados();
+        }
+    }
+
+  
+    async function abrirModalAluguel(carroId, carroInfo) {
+        document.getElementById('carro-para-alugar-info').innerText = carroInfo;
+        document.getElementById('carro-id-aluguel').value = carroId;
+        
+
+        const response = await fetch(`${API_URL}/clientes`);
+        const clientes = await response.json();
+        const selectCliente = document.getElementById('cliente-select');
+        selectCliente.innerHTML = '<option value="">Selecione...</option>';
+        clientes.forEach(cliente => {
+            selectCliente.innerHTML += `<option value="${cliente.id}">${cliente.nome} - ${cliente.cpf}</option>`;
+        });
+
+        const modal = new bootstrap.Modal(document.getElementById('modalAlugarCarro'));
+        modal.show();
+    }
+    
+
+    document.getElementById('form-aluguel').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const carroId = document.getElementById('carro-id-aluguel').value;
+        const clienteId = document.getElementById('cliente-select').value;
+        alert(`PLACEHOLDER: Alugar carro ID ${carroId} para cliente ID ${clienteId}. Back-end a ser implementado.`);
+        bootstrap.Modal.getInstance(document.getElementById('modalAlugarCarro')).hide();
+    });
+    
+
+    document.getElementById('filtro-todos').addEventListener('click', () => alert('Filtro "Todos" a ser implementado.'));
+    document.getElementById('filtro-disponiveis').addEventListener('click', () => alert('Filtro "Disponíveis" a ser implementado.'));
+    document.getElementById('filtro-alugados').addEventListener('click', () => alert('Filtro "Alugados" a ser implementado.'));
+
+
+    document.addEventListener('DOMContentLoaded', carregarDados);
+</script>
+{% endblock %}
