@@ -3,150 +3,24 @@
 {% block title %}Gerenciar Carros{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Gerenciamento de Carros</h1>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarCarro">Adicionar Novo Carro</button>
+<div class="card" style="width:460px;">
+    <h2 style="margin-top:0; color:var(--blue-1)">Frota de Veículos</h2>
+
+    <form id="form-veiculo" onsubmit="return false;">
+        <input id="marca" placeholder="Marca" style="width:100%; padding:8px; margin-top:8px">
+        <input id="modelo" placeholder="Modelo" style="width:100%; padding:8px; margin-top:8px">
+        <input id="ano" placeholder="Ano" type="number" style="width:100%; padding:8px; margin-top:8px">
+        <button onclick="cadastrarVeiculo()" style="margin-top:10px; background:var(--blue-2); color:white; padding:10px; border-radius:8px; border:none;">Cadastrar Veículo</button>
+    </form>
+
+    <hr style="margin:14px 0">
+
+    <div id="lista-veiculos-container"></div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-header">
-        <ul class="nav nav-tabs card-header-tabs">
-            <li class="nav-item"><a class="nav-link active" href="#" id="filtro-todos">Todos</a></li>
-            <li class="nav-item"><a class="nav-link" href="#" id="filtro-disponiveis">Disponíveis</a></li>
-            <li class="nav-item"><a class="nav-link" href="#" id="filtro-alugados">Alugados</a></li>
-        </ul>
-    </div>
-    <div class="card-body">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr><th>Marca</th><th>Modelo</th><th>Ano</th><th>Status</th><th>Ações</th></tr>
-            </thead>
-            <tbody id="lista-carros"></tbody>
-        </table>
-    </div>
+<div class="card" style="width:420px;">
+    <h2 style="margin-top:0; color:var(--blue-1)">Clientes</h2>
+
+    <div id="lista-clientes-mini" style="max-height:400px; overflow:auto;"></div>
 </div>
-
-<div class="modal fade" id="modalAdicionarCarro" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Adicionar Novo Carro</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="form-veiculo"><div class="mb-3"><input type="text" id="marca" class="form-control" placeholder="Marca" required></div><div class="mb-3"><input type="text" id="modelo" class="form-control" placeholder="Modelo" required></div><div class="mb-3"><input type="number" id="ano" class="form-control" placeholder="Ano" required></div><button type="submit" class="btn btn-primary w-100">Cadastrar</button></form></div></div></div>
-</div>
-
-<div class="modal fade" id="modalAlugarCarro" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Realizar Aluguel</h5></div><div class="modal-body"><p><strong>Carro:</strong> <span id="carro-para-alugar-info"></span></p><form id="form-aluguel"><input type="hidden" id="carro-id-aluguel"><div class="mb-3"><label for="cliente-select" class="form-label">Selecione o Cliente</label><select class="form-select" id="cliente-select" required></select></div><button type="submit" class="btn btn-success w-100">Confirmar Aluguel</button></form></div></div></div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    const API_URL = 'http://127.0.0.1:5000';
-    let activeFilter = 'todos'; // Controla o filtro ativo
-
-    // Carrega e exibe os carros com base no filtro
-    async function carregarDados(filtro = 'todos') {
-        let url = `${API_URL}/veiculos`;
-        if (filtro === 'disponiveis') url += '?status=disponivel';
-        if (filtro === 'alugado') url += '?status=alugado';
-
-        const response = await fetch(url);
-        const carros = await response.json();
-        const listaCarrosTbody = document.getElementById('lista-carros');
-        listaCarrosTbody.innerHTML = '';
-        
-        carros.forEach(carro => {
-            const tr = document.createElement('tr');
-            
-            const statusBadge = carro.disponivel 
-                ? `<span class="badge bg-success">Disponível</span>` 
-                : `<span class="badge bg-warning">Alugado</span>`;
-            
-            const acaoBtn = carro.disponivel
-                ? `<button class="btn btn-success btn-sm" onclick="abrirModalAluguel(${carro.id}, '${carro.marca} ${carro.modelo}')">Alugar</button>`
-                : `<button class="btn btn-info btn-sm" onclick="devolverCarro(${carro.id})">Devolver</button>`;
-
-            tr.innerHTML = `
-                <td>${carro.marca}</td><td>${carro.modelo}</td><td>${carro.ano}</td><td>${statusBadge}</td>
-                <td>
-                    ${acaoBtn}
-                    <button class="btn btn-danger btn-sm" onclick="excluirVeiculo(${carro.id})">Excluir</button>
-                </td>
-            `;
-            listaCarrosTbody.appendChild(tr);
-        });
-    }
-
-    // Formulário de adicionar carro
-    document.getElementById('form-veiculo').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const marca = document.getElementById('marca').value;
-        const modelo = document.getElementById('modelo').value;
-        const ano = document.getElementById('ano').value;
-        await fetch(`${API_URL}/veiculos`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ marca, modelo, ano: parseInt(ano) })
-        });
-        bootstrap.Modal.getInstance(document.getElementById('modalAdicionarCarro')).hide();
-        document.getElementById('form-veiculo').reset();
-        carregarDados(activeFilter);
-    });
-
-    // Excluir veículo
-    async function excluirVeiculo(id) {
-        if (confirm('Tem certeza?')) {
-            await fetch(`${API_URL}/veiculos/${id}`, { method: 'DELETE' });
-            carregarDados(activeFilter);
-        }
-    }
-    
-    // Abrir modal de aluguel
-    async function abrirModalAluguel(carroId, carroInfo) {
-        document.getElementById('carro-para-alugar-info').innerText = carroInfo;
-        document.getElementById('carro-id-aluguel').value = carroId;
-        const response = await fetch(`${API_URL}/clientes`);
-        const clientes = await response.json();
-        const selectCliente = document.getElementById('cliente-select');
-        selectCliente.innerHTML = '<option value="">Selecione...</option>';
-        clientes.forEach(cliente => selectCliente.innerHTML += `<option value="${cliente.id}">${cliente.nome}</option>`);
-        new bootstrap.Modal(document.getElementById('modalAlugarCarro')).show();
-    }
-    
-    // Submeter o aluguel
-    document.getElementById('form-aluguel').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id_veiculo = document.getElementById('carro-id-aluguel').value;
-        const id_cliente = document.getElementById('cliente-select').value;
-        
-        await fetch(`${API_URL}/alugueis`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ id_veiculo: parseInt(id_veiculo), id_cliente: parseInt(id_cliente) })
-        });
-        
-        bootstrap.Modal.getInstance(document.getElementById('modalAlugarCarro')).hide();
-        carregarDados(activeFilter);
-    });
-    
-    // Devolver um carro
-    async function devolverCarro(id_veiculo) {
-        if (confirm('Confirmar a devolução deste veículo?')) {
-            await fetch(`${API_URL}/alugueis/devolver`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id_veiculo: id_veiculo })
-            });
-            carregarDados(activeFilter);
-        }
-    }
-    
-    // Lógica dos filtros
-    document.querySelectorAll('.nav-tabs .nav-link').forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            e.preventDefault(); 
-            document.querySelector('.nav-tabs .nav-link.active').classList.remove('active');
-            e.target.classList.add('active');
-            const filtroId = e.target.id;
-            activeFilter = filtroId.split('-')[1]; 
-            carregarDados(activeFilter);
-        });
-    });
-
-    // Carregamento inicial
-    document.addEventListener('DOMContentLoaded', () => carregarDados(activeFilter));
-</script>
 {% endblock %}
